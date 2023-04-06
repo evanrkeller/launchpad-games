@@ -1,7 +1,7 @@
 import sys
 import time
 import rtmidi
-from rtmidi.midiutil import open_midioutput
+from rtmidi.midiutil import open_midiinput, open_midioutput
 
 
 def find_launchpad():
@@ -44,16 +44,19 @@ def handle_button_event(midi_in, midi_out):
         if event:
             msg, _ = event
             if len(msg) == 3:
-                status, x, y = msg
+                status, note, velocity = msg
 
-                if status == 144:  # Button down
+                x = note % 10
+                y = 9 - (note // 10)
+
+                if status == 144 and velocity > 0:  # Button down
                     print(f"Button ({x}, {y}) pressed")
                     # Set color to green when pressed
-                    set_button_color(midi_out, x, y, 21)
-                elif status == 128:  # Button up
+                    set_button_color_by_x_y(midi_out, x, y, 0, 63, 0)
+                elif status == 144 and velocity == 0:  # Button up
                     print(f"Button ({x}, {y}) released")
                     # Set color to off when released
-                    set_button_color(midi_out, x, y, 0)
+                    set_button_color_by_x_y(midi_out, x, y, 0, 0, 0)
 
 
 def set_all_to_color(midi_out, color):
@@ -69,27 +72,6 @@ def set_button_color(midi_out, note, red, green, blue):
 def set_button_color_by_x_y(midi_out, x, y, red, green, blue):
     note = (y - 1) * 16 + x
     set_button_color(midi_out, note, red, green, blue)
-
-
-def create_color_chart(midi_out):
-    for y in range(1, 5):
-        for x in range(1, 9):
-            red_intensity = (x - 1) * 8
-            green_intensity = (x - 1) * 8
-            blue_intensity = (x - 1) * 8
-
-            # Top-left quadrant: varying red intensities
-            set_button_color_by_x_y(midi_out, x, y, red_intensity, 0, 0)
-
-            # Top-right quadrant: varying green intensities
-            set_button_color_by_x_y(midi_out, x + 4, y, 0, green_intensity, 0)
-
-            # Bottom-left quadrant: varying blue intensities
-            set_button_color_by_x_y(midi_out, x, y + 4, 0, 0, blue_intensity)
-
-            # Bottom-right quadrant: varying red, green, and blue intensities
-            set_button_color_by_x_y(midi_out, x + 4, y + 4, red_intensity,
-                                    green_intensity, blue_intensity)
 
 
 def xy_to_note_number(x, y):
