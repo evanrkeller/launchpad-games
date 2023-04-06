@@ -1,4 +1,5 @@
 import sys
+import time
 import rtmidi
 from rtmidi.midiutil import open_midioutput
 
@@ -30,14 +31,10 @@ def setup_device():
     return midi_out
 
 
-def set_button_color(midi_out, x, y, red, green):
-    if y == 9:  # Top row buttons
-        note = x
-    else:
-        note = 10 * (9 - y) + x
-
-    color = (green << 4) | red
-    midi_out.send_message([144, note, color])
+def set_button_color(midi_out, x, y, red, green, blue):
+    note = ((9 - y) * 10) + x
+    midi_out.send_message(
+        [240, 0, 32, 41, 2, 24, 11, note, red, green, blue, 247])
 
 
 def main():
@@ -45,10 +42,12 @@ def main():
 
     x = 2
     y = 1
-    red = 3
-    green = 3
+    red = 63
+    green = 63
+    blue = 63
 
-    set_button_color(midi_out, x, y, red, green)
+    set_button_color(midi_out, x, y, red, green, blue)
+    time.sleep(5)  # Keep the LED lit for 5 seconds
 
 
 if __name__ == "__main__":
