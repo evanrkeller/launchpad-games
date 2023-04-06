@@ -52,29 +52,26 @@ def handle_button_event(midi_in, midi_out):
                 if status == 144:  # Button down
                     print(f"Button ({x}, {y}) pressed")
                     # Set color to green when pressed
-                    set_button_color(midi_out, x, y, 0, 63, 0)
+                    set_button_color(midi_out, x, y, 21)
                 elif status == 128:  # Button up
                     print(f"Button ({x}, {y}) released")
                     # Set color to off when released
-                    set_button_color(midi_out, x, y, 0, 0, 0)
+                    set_button_color(midi_out, x, y, 0)
 
 
-def set_button_color(midi_out, x, y, red, green, blue):
+def set_button_color(midi_out, x, y, color):
     if y == 9:  # Top row buttons
-        note = x
+        midi_out.send_message([176, x, color])
     else:
         note = 10 * (9 - y) + x
-
-    midi_out.send_message(
-        [240, 0, 32, 41, 2, 24, 11, note, red, green, blue, 247])
+        midi_out.send_message([144, note, color])
 
 
 def main():
     midi_in, midi_out = setup_device()
     print("Launchpad Mk2 ready, press buttons or press Ctrl+C to exit...")
 
-    # Enter Programmer mode
-    midi_out.send_message([240, 0, 32, 41, 2, 24, 14, 247])
+    midi_out.send_message([240, 0, 32, 41, 2, 24, 13, 247])  # Enter Live mode
 
     try:
         handle_button_event(midi_in, midi_out)
@@ -82,8 +79,8 @@ def main():
         pass
     finally:
         print("Exiting...")
-        # Exit Programmer mode
-        midi_out.send_message([240, 0, 32, 41, 2, 24, 15, 247])
+        midi_out.send_message(
+            [240, 0, 32, 41, 2, 24, 15, 247])  # Exit Live mode
         midi_in.close_port()
         midi_out.close_port()
 
