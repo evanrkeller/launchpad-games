@@ -26,15 +26,34 @@ def find_launchpad():
 
 
 def setup_device():
-    output_port_idx = find_launchpad()
+    input_port_idx, output_port_idx = find_launchpad()
 
-    if output_port_idx is None:
+    if input_port_idx is None or output_port_idx is None:
         print("Error: No Launchpad device found.")
         sys.exit(1)
 
+    midi_in, _ = open_midiinput(input_port_idx)
     midi_out, _ = open_midioutput(output_port_idx)
 
-    return midi_out
+    return midi_in, midi_out
+
+
+def handle_button_event(midi_in, midi_out):
+    while True:
+        event = midi_in.get_message()
+        if event:
+            msg, _ = event
+            if len(msg) == 3:
+                status, x, y = msg
+
+                if status == 144:  # Button down
+                    print(f"Button ({x}, {y}) pressed")
+                    # Set color to green when pressed
+                    set_button_color(midi_out, x, y, 21)
+                elif status == 128:  # Button up
+                    print(f"Button ({x}, {y}) released")
+                    # Set color to off when released
+                    set_button_color(midi_out, x, y, 0)
 
 
 def set_all_to_color(midi_out, color):
@@ -81,10 +100,8 @@ def xy_to_note_number(x, y):
 
 
 def main():
-    midi_out = setup_device()
+    midi_in, midi_out = setup_device()
     set_all_to_color(midi_out, 0)
-
-    note = 11
 
     # set top left button to red
     set_button_color(midi_out, xy_to_note_number(1, 1), 63, 0, 0)
@@ -109,6 +126,17 @@ def main():
 
     # set the right bottom special button to orange
     set_button_color(midi_out, xy_to_note_number(8, 9), 63, 31, 0)
+
+    try:
+        handle_button_event(midi_in, midi_out)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print("Exiting...")
+        # Exit Programmer mode
+        midi_out.send_message([240, 0, 32, 41, 2, 24, 15, 247])
+        midi_in.close_port()
+        midi_out.close_port()
 
 
 if __name__ == "__main__":
