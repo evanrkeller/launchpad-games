@@ -49,11 +49,11 @@ def handle_button_event(midi_in, midi_out):
                 x = note % 10
                 y = 9 - (note // 10)
 
-                if status == 144:  # Button down
+                if status == 144 and velocity > 0:  # Button down
                     print(f"Button ({x}, {y}) pressed")
                     # Set color to green when pressed
                     set_button_color(midi_out, x, y, 21)
-                elif status == 128:  # Button up
+                elif status == 144 and velocity == 0:  # Button up
                     print(f"Button ({x}, {y}) released")
                     # Set color to off when released
                     set_button_color(midi_out, x, y, 0)
