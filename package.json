@@ -1,0 +1,10 @@
+{
+  "name": "launchpad",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Evan Keller <evanrkeller@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "midi": "^2.0.0"
+  }
+}

@@ -3,6 +3,10 @@ import time
 import launchpad_py as launchpad
 
 
+def lightup(lp, x, y, red, green, blue):  # light up a single LED
+    lp.LedCtrlXY(x, y, red, green, blue)
+
+
 def main():
     lp = launchpad.LaunchpadMk2()
 
@@ -10,14 +14,10 @@ def main():
         print("Error: Launchpad Mk2 not found.")
         sys.exit(1)
 
-    x = 2
-    y = 1
-    red = 63
-    green = 63
-    blue = 63
-
-    lp.LedCtrlXY(x, y, red, green, blue)
-    time.sleep(5)  # Keep the LED lit for 5 seconds
+    for x in range(9):
+        for y in range(9):
+            lightup(lp, x, y, 63, 63, 63)
+            time.sleep(1)  # Keep the LED lit for 5 seconds
 
     lp.Reset()  # Turn off all LEDs
     lp.Close()  # Close the connection
