@@ -1,3 +1,4 @@
+import sys
 import rtmidi
 from rtmidi.midiutil import open_midioutput
 
@@ -24,7 +25,7 @@ def setup_device():
         print("Error: No Launchpad device found.")
         sys.exit(1)
 
-    _, midi_out = open_midioutput(output_port_idx)
+    midi_out, _ = open_midioutput(output_port_idx)
 
     return midi_out
 
