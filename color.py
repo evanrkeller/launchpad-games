@@ -5,18 +5,24 @@ from rtmidi.midiutil import open_midioutput
 
 
 def find_launchpad():
+    midi_in = rtmidi.MidiIn()
     midi_out = rtmidi.MidiOut()
+
+    input_ports = [midi_in.get_port_name(i)
+                   for i in range(midi_in.get_port_count())]
     output_ports = [midi_out.get_port_name(
         i) for i in range(midi_out.get_port_count())]
-    launchpad_ports = [p for p in output_ports if "Launchpad" in p]
+
+    launchpad_ports = [p for p in input_ports if "Launchpad" in p]
 
     if not launchpad_ports:
-        return None
+        return None, None
 
     launchpad_port = launchpad_ports[0]
+    input_port_idx = input_ports.index(launchpad_port)
     output_port_idx = output_ports.index(launchpad_port)
 
-    return output_port_idx
+    return input_port_idx, output_port_idx
 
 
 def setup_device():
