@@ -1,7 +1,11 @@
 import sys
 import time
 import rtmidi
+import threading
 from rtmidi.midiutil import open_midiinput, open_midioutput
+import random
+
+score = 0
 
 
 def find_launchpad():
@@ -46,17 +50,22 @@ def handle_button_event(midi_in, midi_out):
             if len(msg) == 3:
                 status, note, velocity = msg
 
-                x = note % 10
-                y = 9 - (note // 10)
+                [x, y] = note_number_to_xy(note)
 
                 if status == 144 and velocity > 0:  # Button down
-                    print(f"Button ({x}, {y}) pressed")
                     # Set color to green when pressed
-                    set_button_color_by_x_y(midi_out, x, y, 0, 63, 0)
+                    set_button_color(midi_out, note, 0, 63, 0)
                 elif status == 144 and velocity == 0:  # Button up
-                    print(f"Button ({x}, {y}) released")
                     # Set color to off when released
-                    set_button_color_by_x_y(midi_out, x, y, 0, 0, 0)
+                    fade_thread = threading.Thread(
+                        target=fade_button_color, args=(midi_out, note, 0, 63, 0))
+                    fade_thread.start()
+
+
+def fade_button_color(midi_out, note, red, green, blue):
+    for i in range(0, 17):
+        set_button_color(midi_out, note, 0, 64-(i*4), 0)
+        time.sleep(0.005)
 
 
 def set_all_to_color(midi_out, color):
@@ -81,33 +90,68 @@ def xy_to_note_number(x, y):
         return (9-x) * 10 + y
 
 
+def note_number_to_xy(note):
+    if note >= 104:
+        return 0, note - 103
+    else:
+        return 9 - (note // 10), note % 10
+
+
+def check_button_pressed(midi_out, midi_in, note, x, y):
+    global score
+    start_time = time.time()
+    pressed = False
+
+    while time.time() - start_time < 5:
+        event = midi_in.get_message()
+        if event:
+            msg, _ = event
+            if len(msg) == 3:
+                status, event_note, velocity = msg
+                [event_x, event_y] = note_number_to_xy(event_note)
+
+                if status == 144 and velocity > 0 and event_note == note:
+                    pressed = True
+                    break
+
+    if pressed:
+        score += 10
+        set_button_color(midi_out, note, 0, 63, 0)
+        time.sleep(0.5)
+    else:
+        score -= 10
+        set_button_color(midi_out, note, 63, 0, 0)
+        time.sleep(0.5)
+
+    set_button_color(midi_out, note, 0, 0, 0)
+    print(f"Current score: {score}")
+
+
+def light_up_random_button(midi_out):
+    x = random.randint(1, 8)
+    y = random.randint(1, 8)
+    note = xy_to_note_number(x, y)
+    set_button_color(midi_out, note, 0, 0, 63)
+    check_button_thread = threading.Thread(
+        target=check_button_pressed, args=(midi_out, midi_in, note, x, y))
+    check_button_thread.start()
+
+
+def light_up_random_button_periodically(midi_out):
+    while True:
+        light_up_random_button(midi_out)
+        time.sleep(1)
+
+
 def main():
+    global midi_in, midi_out
     midi_in, midi_out = setup_device()
     set_all_to_color(midi_out, 0)
 
-    # set top left button to red
-    set_button_color(midi_out, xy_to_note_number(1, 1), 63, 0, 0)
-
-    # set top right button to green
-    set_button_color(midi_out, xy_to_note_number(1, 8), 0, 63, 0)
-
-    # set bottom left button to blue
-    set_button_color(midi_out, xy_to_note_number(8, 1), 0, 0, 63)
-
-    # set bottom right button to white
-    set_button_color(midi_out, xy_to_note_number(8, 8), 63, 63, 63)
-
-    # set the top left special button to yellow
-    set_button_color(midi_out, xy_to_note_number(0, 1), 63, 63, 0)
-
-    # set the top right special button to purple
-    set_button_color(midi_out, xy_to_note_number(0, 8), 63, 0, 63)
-
-    # set the right top special button to cyan
-    set_button_color(midi_out, xy_to_note_number(1, 9), 0, 63, 63)
-
-    # set the right bottom special button to orange
-    set_button_color(midi_out, xy_to_note_number(8, 9), 63, 31, 0)
+    random_button_thread = threading.Thread(
+        target=light_up_random_button_periodically(midi_out))
+    random_button_thread.daemon = True
+    random_button_thread.start()
 
     try:
         handle_button_event(midi_in, midi_out)
