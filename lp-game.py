@@ -1,11 +1,10 @@
-import sys
-import time
-import rtmidi
-import threading
 from rtmidi.midiutil import open_midiinput, open_midioutput
-import random
 import asyncio
 import nest_asyncio
+import random
+import rtmidi
+import sys
+import time
 
 score = 0
 
@@ -96,7 +95,7 @@ def note_number_to_xy(note):
         return 9 - (note // 10), note % 10
 
 
-def check_button_pressed(note, x, y):
+async def check_button_pressed(note, x, y):
     global score
     start_time = time.time()
     pressed = False
@@ -112,33 +111,32 @@ def check_button_pressed(note, x, y):
                 if status == 144 and velocity > 0 and event_note == note:
                     pressed = True
                     break
+        await asyncio.sleep(0.01)
 
     if pressed:
         score += 10
         set_button_color(note, 0, 63, 0)
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
     else:
         score -= 10
         set_button_color(note, 63, 0, 0)
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
 
     set_button_color(note, 0, 0, 0)
     print(f"Current score: {score}")
 
 
-def light_up_random_button():
+async def light_up_random_button():
     x = random.randint(1, 8)
     y = random.randint(1, 8)
     note = xy_to_note_number(x, y)
     set_button_color(note, 0, 0, 63)
-    check_button_thread = threading.Thread(
-        target=check_button_pressed, args=(note, x, y))
-    check_button_thread.start()
+    asyncio.create_task(check_button_pressed(note, x, y))
 
 
 async def light_up_random_button_periodically():
     while True:
-        light_up_random_button()
+        asyncio.create_task(light_up_random_button())
         await asyncio.sleep(1)
 
 
