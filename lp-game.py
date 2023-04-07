@@ -43,7 +43,7 @@ def setup_device():
     return midi_in, midi_out
 
 
-async def handle_button_event(midi_in, midi_out):
+async def handle_button_event():
     while True:
         event = midi_in.get_message()
         if event:
@@ -57,30 +57,30 @@ async def handle_button_event(midi_in, midi_out):
                     set_button_color(midi_out, note, 0, 63, 0)
                 elif status == 144 and velocity == 0:  # Button up
                     fade_thread = threading.Thread(
-                        target=fade_button_color, args=(midi_out, note, 0, 63, 0))
+                        target=fade_button_color, args=(note, 0, 63, 0))
             fade_thread.start()
         await asyncio.sleep(0.01)
 
 
-def fade_button_color(midi_out, note, red, green, blue):
+def fade_button_color(note, red, green, blue):
     for i in range(0, 17):
-        set_button_color(midi_out, note, 0, 64-(i*4), 0)
+        set_button_color(note, 0, 64-(i*4), 0)
         time.sleep(0.005)
 
 
-def set_all_to_color(midi_out, color):
+def set_all_to_color(color):
     midi_out.send_message(
         [240, 0, 32, 41, 2, 24, 14, color, 247])
 
 
-def set_button_color(midi_out, note, red, green, blue):
+def set_button_color(note, red, green, blue):
     midi_out.send_message(
         [240, 0, 32, 41, 2, 24, 11, note, red, green, blue, 247])
 
 
-def set_button_color_by_x_y(midi_out, x, y, red, green, blue):
+def set_button_color_by_x_y(x, y, red, green, blue):
     note = (y - 1) * 16 + x
-    set_button_color(midi_out, note, red, green, blue)
+    set_button_color(note, red, green, blue)
 
 
 def xy_to_note_number(x, y):
@@ -97,7 +97,7 @@ def note_number_to_xy(note):
         return 9 - (note // 10), note % 10
 
 
-def check_button_pressed(midi_out, midi_in, note, x, y):
+def check_button_pressed(note, x, y):
     global score
     start_time = time.time()
     pressed = False
@@ -116,14 +116,14 @@ def check_button_pressed(midi_out, midi_in, note, x, y):
 
     if pressed:
         score += 10
-        set_button_color(midi_out, note, 0, 63, 0)
+        set_button_color(note, 0, 63, 0)
         time.sleep(0.5)
     else:
         score -= 10
-        set_button_color(midi_out, note, 63, 0, 0)
+        set_button_color(note, 63, 0, 0)
         time.sleep(0.5)
 
-    set_button_color(midi_out, note, 0, 0, 0)
+    set_button_color(note, 0, 0, 0)
     print(f"Current score: {score}")
 
 
@@ -131,9 +131,9 @@ def light_up_random_button():
     x = random.randint(1, 8)
     y = random.randint(1, 8)
     note = xy_to_note_number(x, y)
-    set_button_color(midi_out, note, 0, 0, 63)
+    set_button_color(note, 0, 0, 63)
     check_button_thread = threading.Thread(
-        target=check_button_pressed, args=(midi_out, midi_in, note, x, y))
+        target=check_button_pressed, args=(note, x, y))
     check_button_thread.start()
 
 
@@ -146,10 +146,10 @@ async def light_up_random_button_periodically():
 async def main():
     global midi_in, midi_out
     midi_in, midi_out = setup_device()
-    set_all_to_color(midi_out, 0)
+    set_all_to_color(0)
 
     await asyncio.gather(
-        handle_button_event(midi_in, midi_out),
+        handle_button_event(),
         light_up_random_button_periodically()
     )
 
