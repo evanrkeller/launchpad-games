@@ -4,8 +4,11 @@ import rtmidi
 import threading
 from rtmidi.midiutil import open_midiinput, open_midioutput
 import random
+from queue import Queue
 
 score = 0
+
+button_event_queue = Queue()
 
 
 def find_launchpad():
@@ -48,18 +51,24 @@ def handle_button_event(midi_in, midi_out):
         if event:
             msg, _ = event
             if len(msg) == 3:
-                status, note, velocity = msg
+                button_event_queue.put(msg)
 
-                [x, y] = note_number_to_xy(note)
 
-                if status == 144 and velocity > 0:  # Button down
-                    # Set color to green when pressed
-                    set_button_color(midi_out, note, 0, 63, 0)
-                elif status == 144 and velocity == 0:  # Button up
-                    # Set color to off when released
-                    fade_thread = threading.Thread(
-                        target=fade_button_color, args=(midi_out, note, 0, 63, 0))
-                    fade_thread.start()
+def process_button_events(midi_out):
+    while True:
+        msg = button_event_queue.get()
+        status, note, velocity = msg
+
+        [x, y] = note_number_to_xy(note)
+
+        if status == 144 and velocity > 0:  # Button down
+            set_button_color(midi_out, note, 0, 63, 0)
+        elif status == 144 and velocity == 0:  # Button up
+            fade_thread = threading.Thread(
+                target=fade_button_color, args=(midi_out, note, 0, 63, 0))
+            fade_thread.start()
+
+        button_event_queue.task_done()
 
 
 def fade_button_color(midi_out, note, red, green, blue):
@@ -152,6 +161,12 @@ def main():
         target=light_up_random_button_periodically(midi_out))
     random_button_thread.daemon = True
     random_button_thread.start()
+
+    # Start the button event processing thread
+    button_event_processing_thread = threading.Thread(
+        target=process_button_events, args=(midi_out,))
+    button_event_processing_thread.daemon = True
+    button_event_processing_thread.start()
 
     try:
         handle_button_event(midi_in, midi_out)
