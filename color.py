@@ -4,11 +4,9 @@ import rtmidi
 import threading
 from rtmidi.midiutil import open_midiinput, open_midioutput
 import random
-from queue import Queue
+import asyncio
 
 score = 0
-
-button_event_queue = Queue()
 
 
 def find_launchpad():
@@ -45,30 +43,23 @@ def setup_device():
     return midi_in, midi_out
 
 
-def handle_button_event(midi_in, midi_out):
+async def handle_button_event(midi_in, midi_out):
     while True:
         event = midi_in.get_message()
         if event:
             msg, _ = event
             if len(msg) == 3:
-                button_event_queue.put(msg)
+                status, note, velocity = msg
 
+                [x, y] = note_number_to_xy(note)
 
-def process_button_events(midi_out):
-    while True:
-        msg = button_event_queue.get()
-        status, note, velocity = msg
-
-        [x, y] = note_number_to_xy(note)
-
-        if status == 144 and velocity > 0:  # Button down
-            set_button_color(midi_out, note, 0, 63, 0)
-        elif status == 144 and velocity == 0:  # Button up
-            fade_thread = threading.Thread(
-                target=fade_button_color, args=(midi_out, note, 0, 63, 0))
+                if status == 144 and velocity > 0:  # Button down
+                    set_button_color(midi_out, note, 0, 63, 0)
+                elif status == 144 and velocity == 0:  # Button up
+                    fade_thread = threading.Thread(
+                        target=fade_button_color, args=(midi_out, note, 0, 63, 0))
             fade_thread.start()
-
-        button_event_queue.task_done()
+        await asyncio.sleep(0.01)
 
 
 def fade_button_color(midi_out, note, red, green, blue):
@@ -136,7 +127,7 @@ def check_button_pressed(midi_out, midi_in, note, x, y):
     print(f"Current score: {score}")
 
 
-def light_up_random_button(midi_out):
+def light_up_random_button():
     x = random.randint(1, 8)
     y = random.randint(1, 8)
     note = xy_to_note_number(x, y)
@@ -146,39 +137,21 @@ def light_up_random_button(midi_out):
     check_button_thread.start()
 
 
-def light_up_random_button_periodically(midi_out):
+async def light_up_random_button_periodically():
     while True:
-        light_up_random_button(midi_out)
-        time.sleep(1)
+        light_up_random_button()
+        await asyncio.sleep(1)
 
 
-def main():
+async def main():
     global midi_in, midi_out
     midi_in, midi_out = setup_device()
     set_all_to_color(midi_out, 0)
 
-    random_button_thread = threading.Thread(
-        target=light_up_random_button_periodically(midi_out))
-    random_button_thread.daemon = True
-    random_button_thread.start()
-
-    # Start the button event processing thread
-    button_event_processing_thread = threading.Thread(
-        target=process_button_events, args=(midi_out,))
-    button_event_processing_thread.daemon = True
-    button_event_processing_thread.start()
-
-    try:
-        handle_button_event(midi_in, midi_out)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        print("Exiting...")
-        # Exit Programmer mode
-        midi_out.send_message([240, 0, 32, 41, 2, 24, 15, 247])
-        midi_in.close_port()
-        midi_out.close_port()
-
+    await asyncio.gather(
+        handle_button_event(midi_in, midi_out),
+        light_up_random_button_periodically()
+    )
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
