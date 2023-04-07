@@ -5,6 +5,7 @@ import threading
 from rtmidi.midiutil import open_midiinput, open_midioutput
 import random
 import asyncio
+import nest_asyncio
 
 score = 0
 
@@ -54,18 +55,16 @@ async def handle_button_event():
                 [x, y] = note_number_to_xy(note)
 
                 if status == 144 and velocity > 0:  # Button down
-                    set_button_color(midi_out, note, 0, 63, 0)
+                    set_button_color(note, 0, 63, 0)
                 elif status == 144 and velocity == 0:  # Button up
-                    fade_thread = threading.Thread(
-                        target=fade_button_color, args=(note, 0, 63, 0))
-            fade_thread.start()
-        await asyncio.sleep(0.01)
+                    fade_task = asyncio.create_task(
+                        fade_button_color(note, 0, 0, 0))
 
 
-def fade_button_color(note, red, green, blue):
+async def fade_button_color(note, red, green, blue):
     for i in range(0, 17):
         set_button_color(note, 0, 64-(i*4), 0)
-        time.sleep(0.005)
+        await asyncio.sleep(0.01)
 
 
 def set_all_to_color(color):
@@ -148,10 +147,19 @@ async def main():
     midi_in, midi_out = setup_device()
     set_all_to_color(0)
 
-    await asyncio.gather(
-        handle_button_event(),
-        light_up_random_button_periodically()
-    )
+    try:
+        nest_asyncio.apply()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(light_up_random_button_periodically())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        print("Exiting...")
+        # Exit Programmer mode
+        midi_out.send_message([240, 0, 32, 41, 2, 24, 15, 247])
+        midi_in.close_port()
+        midi_out.close_port()
 
 if __name__ == "__main__":
     asyncio.run(main())
